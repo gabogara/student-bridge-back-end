@@ -4,7 +4,6 @@ import jwt
 import os
 
 
-# auth_middleware.py
 def token_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -13,8 +12,8 @@ def token_required(f):
             return jsonify({"err": "Unauthorized"}), 401
         try:
             token = authorization_header.split(' ')[1]
-            token_data = jwt.decode(token, os.getenv('JWT_SECRET'), algorithms=["HS256"])
-            print("TOKEN_DATA:", token_data)
+            token_data = jwt.decode(token, os.getenv(
+                'JWT_SECRET'), algorithms=["HS256"])
             g.user = token_data["payload"]
         except Exception as err:
             return jsonify({"err": str(err)}), 500
