@@ -4,6 +4,7 @@ CREATE DATABASE student_bridge_db;
 
 DROP TABLE IF EXISTS resources;
 DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS verifications;
 
 
 -- ---------------USERS ------------------------------------------------
@@ -35,3 +36,13 @@ CREATE TABLE resources (
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- ----------- VERIFICATIONS 
+
+CREATE TABLE verifications (
+  id          SERIAL PRIMARY KEY,
+  resource_id INTEGER NOT NULL REFERENCES resources(id) ON DELETE CASCADE,
+  user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  status      VARCHAR(30) NOT NULL,
+  note        TEXT NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

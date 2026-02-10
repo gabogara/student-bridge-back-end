@@ -3,6 +3,10 @@ from db_helpers import get_db_connection
 import psycopg2, psycopg2.extras
 from auth_middleware import token_required
 
+
+from auth_middleware import token_required
+from db_helpers import get_db_connection, consolidate_verifications_in_resources
+
 resources_blueprint = Blueprint('hoots_blueprint', __name__)
 
 @resources_blueprint.route("/resources", methods=["POST"])
@@ -72,4 +76,48 @@ def create_resource():
 
 @resources_blueprint.route("/resources", methods=["GET"])
 def resources_index():
-    return jsonify({"message": "resorces index lives here"})
+    connection = get_db_connection()
+    try:
+        cursor = connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        cursor.execute(
+            """
+            SELECT r.id,
+                   r.created_by AS resource_author_id,
+                   r.title,
+                   r.description,
+                   r.category,
+                   r.address,
+                   r.city,
+                   r.lat,
+                   r.lng,
+                   r.requirements,
+                   r.hidden_reason,
+                   r.hidden_at,
+                   r.created_at AS "createdAt",
+                   r.updated_at AS "updatedAt",
+                   u.username AS author_username,
+
+                   v.id AS verification_id,
+                   v.status AS verification_status,
+                   v.note AS verification_note,
+                   v.created_at AS "verificationCreatedAt",
+                   u_v.username AS verification_author_username,
+                   v.user_id AS verification_author_id
+
+            FROM resources r
+            INNER JOIN users u ON r.created_by = u.id
+            LEFT JOIN verifications v ON r.id = v.resource_id
+            LEFT JOIN users u_v ON v.user_id = u_v.id
+            ORDER BY r.created_at DESC, v.created_at DESC
+            """
+        )
+
+        rows = cursor.fetchall()
+        consolidated = consolidate_verifications_in_resources(rows)
+        return jsonify(consolidated), 200
+
+    except Exception as error:
+        return jsonify({"error": str(error)}), 500
+    finally:
+        connection.close()
