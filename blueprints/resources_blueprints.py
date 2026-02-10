@@ -121,8 +121,10 @@ def resources_index():
             ORDER BY r.created_at DESC, v.created_at DESC
             """
         )
-
         rows = cursor.fetchall()
+
+        print("RAW rows sample:", rows[:1])
+
         consolidated = consolidate_verifications_in_resources(rows)
         return jsonify(consolidated), 200
 
@@ -130,6 +132,8 @@ def resources_index():
         return jsonify({"error": str(error)}), 500
     finally:
         connection.close()
+
+
 
 @resources_blueprint.route("/resources/<int:resource_id>", methods=["GET"])
 def show_resource(resource_id):
@@ -184,7 +188,9 @@ def show_resource(resource_id):
     finally:
         connection.close()
 
+        
 
+# PUT /resources/:id
 @resources_blueprint.route("/resources/<int:resource_id>", methods=["PUT"])
 @token_required
 def update_resource(resource_id):
@@ -200,6 +206,13 @@ def update_resource(resource_id):
 
         if resource_to_update["created_by"] != g.user["id"]:
             return jsonify({"error": "Unauthorized"}), 401
+        
+        # --- Geocoding (Mapbox)
+        coords = geocode_address(updated["address"], updated["city"])
+        if coords is None:
+            return jsonify({"error": "Address not found"}), 400
+        lat, lng = coords
+        print("updated geocoded coords:", lat, lng)
 
         cursor.execute(
             """
@@ -222,8 +235,8 @@ def update_resource(resource_id):
                 updated["category"],
                 updated["address"],
                 updated["city"],
-                updated["lat"],
-                updated["lng"],
+                lat,
+                lng,
                 updated.get("requirements"),
                 resource_id,
             ),
