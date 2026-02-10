@@ -1,16 +1,18 @@
 from flask import Flask, jsonify, g
 from flask_cors import CORS
-import os
 import psycopg2
 import psycopg2.extras
+
 from auth_middleware import token_required
 from auth_blueprint import authentication_blueprint
 from resources_blueprints import resources_blueprint
+from verifications_blueprint import verifications_blueprint
 
 app = Flask(__name__)
 CORS(app)
 app.register_blueprint(authentication_blueprint)
 app.register_blueprint(resources_blueprint)
+app.register_blueprint(verifications_blueprint)
 
 
 
