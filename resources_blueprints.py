@@ -254,3 +254,30 @@ def update_resource(resource_id):
         return jsonify({"error": str(error)}), 500
     finally:
         connection.close()
+
+
+@resources_blueprint.route("/resources/<int:resource_id>", methods=["DELETE"])
+@token_required
+def delete_resource(resource_id):
+    connection = get_db_connection()
+    try:
+        cursor = connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        cursor.execute("SELECT * FROM resources WHERE id = %s", (resource_id,))
+        resource_to_delete = cursor.fetchone()
+        if resource_to_delete is None:
+            return jsonify({"error": "Resource not found"}), 404
+
+        if resource_to_delete["created_by"] != g.user["id"]:
+            return jsonify({"error": "Unauthorized"}), 401
+
+        cursor.execute("DELETE FROM resources WHERE id = %s", (resource_id,))
+
+        connection.commit()
+        return jsonify(resource_to_delete), 200
+
+    except Exception as error:
+        connection.rollback()
+        return jsonify({"error": str(error)}), 500
+    finally:
+        connection.close()
