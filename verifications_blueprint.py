@@ -50,3 +50,42 @@ def create_verification(resource_id):
     finally:
         connection.close()
 
+
+@verifications_blueprint.route("/resources/<int:resource_id>/verifications/<int:verification_id>", methods=["PUT"])
+@token_required
+def update_verification(resource_id, verification_id):
+    connection = get_db_connection()
+    try:
+        data = request.get_json()
+        cursor = connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        cursor.execute(
+            "SELECT * FROM verifications WHERE id = %s AND resource_id = %s",
+            (verification_id, resource_id),
+        )
+        verification_to_update = cursor.fetchone()
+        if verification_to_update is None:
+            return jsonify({"error": "Verification not found"}), 404
+
+        if verification_to_update["user_id"] != g.user["id"]:
+            return jsonify({"error": "Unauthorized"}), 401
+
+        cursor.execute(
+            """
+            UPDATE verifications
+            SET status = %s, note = %s
+            WHERE id = %s AND resource_id = %s
+            RETURNING *
+            """,
+            (data["status"], data["note"], verification_id, resource_id),
+        )
+        updated = cursor.fetchone()
+
+        connection.commit()
+        return jsonify({"verification": updated}), 200
+
+    except Exception as error:
+        connection.rollback()
+        return jsonify({"error": str(error)}), 500
+    finally:
+        connection.close()
