@@ -121,3 +121,56 @@ def resources_index():
         return jsonify({"error": str(error)}), 500
     finally:
         connection.close()
+
+@resources_blueprint.route("/resources/<int:resource_id>", methods=["GET"])
+def show_resource(resource_id):
+    connection = get_db_connection()
+    try:
+        cursor = connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        cursor.execute(
+            """
+            SELECT r.id,
+                   r.created_by AS resource_author_id,
+                   r.title,
+                   r.description,
+                   r.category,
+                   r.address,
+                   r.city,
+                   r.lat,
+                   r.lng,
+                   r.requirements,
+                   r.hidden_reason,
+                   r.hidden_at,
+                   r.created_at AS "createdAt",
+                   r.updated_at AS "updatedAt",
+                   u.username AS author_username,
+
+                   v.id AS verification_id,
+                   v.status AS verification_status,
+                   v.note AS verification_note,
+                   v.created_at AS "verificationCreatedAt",
+                   u_v.username AS verification_author_username,
+                   v.user_id AS verification_author_id
+
+            FROM resources r
+            INNER JOIN users u ON r.created_by = u.id
+            LEFT JOIN verifications v ON r.id = v.resource_id
+            LEFT JOIN users u_v ON v.user_id = u_v.id
+            WHERE r.id = %s
+            ORDER BY v.created_at DESC
+            """,
+            (resource_id,),
+        )
+
+        rows = cursor.fetchall()
+        if not rows:
+            return jsonify({"error": "Resource not found"}), 404
+
+        processed = consolidate_verifications_in_resources(rows)[0]
+        return jsonify(processed), 200
+
+    except Exception as error:
+        return jsonify({"error": str(error)}), 500
+    finally:
+        connection.close()
