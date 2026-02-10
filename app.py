@@ -3,10 +3,10 @@ from flask_cors import CORS
 import psycopg2
 import psycopg2.extras
 
-from auth_middleware import token_required
-from auth_blueprint import authentication_blueprint
-from resources_blueprints import resources_blueprint
-from verifications_blueprint import verifications_blueprint
+from middleware.auth_middleware import token_required
+from blueprints.auth_blueprint import authentication_blueprint
+from blueprints.resources_blueprints import resources_blueprint
+from blueprints.verifications_blueprint import verifications_blueprint
 
 app = Flask(__name__)
 CORS(app)
@@ -16,7 +16,7 @@ app.register_blueprint(verifications_blueprint)
 
 
 
-from db_helpers import get_db_connection
+from utils.db_helpers import get_db_connection
 
 @app.route('/')
 def index():

@@ -1,11 +1,11 @@
 from flask import Blueprint, jsonify, request, g
-from db_helpers import get_db_connection
+from utils.db_helpers import get_db_connection
 import psycopg2, psycopg2.extras
-from auth_middleware import token_required
+from middleware.auth_middleware import token_required
 
 
-from auth_middleware import token_required
-from db_helpers import get_db_connection, consolidate_verifications_in_resources
+from middleware.auth_middleware import token_required
+from utils.db_helpers import get_db_connection, consolidate_verifications_in_resources
 
 resources_blueprint = Blueprint('hoots_blueprint', __name__)
 
