@@ -1,24 +1,32 @@
 from flask import Blueprint, jsonify, request, g
-from utils.db_helpers import get_db_connection
 import psycopg2, psycopg2.extras
-from middleware.auth_middleware import token_required
 
 
 from middleware.auth_middleware import token_required
 from utils.db_helpers import get_db_connection, consolidate_verifications_in_resources
+from utils.mapbox_helpers import geocode_address
 
-resources_blueprint = Blueprint('hoots_blueprint', __name__)
+resources_blueprint = Blueprint('resources_blueprint', __name__)
+
 
 @resources_blueprint.route("/resources", methods=["POST"])
 @token_required
 def create_resource():
+    print("create_resource hit")
+
     connection = get_db_connection()
     try:
         new_resource = request.get_json()
         creator_id = g.user["id"]
 
-        cursor = connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        # --- Geocoding en BACKEND (Mapbox) ---
+        coords = geocode_address(new_resource["address"], new_resource["city"])
+        if coords is None:
+            return jsonify({"error": "Address not found"}), 400
+        lat, lng = coords
+        print("geocoded coords:", lat, lng)
 
+        cursor = connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cursor.execute(
             """
             INSERT INTO resources (created_by, title, description, category, address, city, lat, lng, requirements)
@@ -32,11 +40,12 @@ def create_resource():
                 new_resource["category"],
                 new_resource["address"],
                 new_resource["city"],
-                new_resource["lat"],
-                new_resource["lng"],
+                lat,
+                lng,
                 new_resource.get("requirements"),
             ),
         )
+
         resource_id = cursor.fetchone()["id"]
 
         cursor.execute(
@@ -62,8 +71,8 @@ def create_resource():
             """,
             (resource_id,),
         )
-        created_resource = cursor.fetchone()
 
+        created_resource = cursor.fetchone()
         connection.commit()
         return jsonify(created_resource), 201
 
