@@ -174,3 +174,83 @@ def show_resource(resource_id):
         return jsonify({"error": str(error)}), 500
     finally:
         connection.close()
+
+
+@resources_blueprint.route("/resources/<int:resource_id>", methods=["PUT"])
+@token_required
+def update_resource(resource_id):
+    connection = get_db_connection()
+    try:
+        updated = request.get_json()
+        cursor = connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        cursor.execute("SELECT * FROM resources WHERE id = %s", (resource_id,))
+        resource_to_update = cursor.fetchone()
+        if resource_to_update is None:
+            return jsonify({"error": "Resource not found"}), 404
+
+        if resource_to_update["created_by"] != g.user["id"]:
+            return jsonify({"error": "Unauthorized"}), 401
+
+        cursor.execute(
+            """
+            UPDATE resources
+            SET title = %s,
+                description = %s,
+                category = %s,
+                address = %s,
+                city = %s,
+                lat = %s,
+                lng = %s,
+                requirements = %s,
+                updated_at = NOW()
+            WHERE id = %s
+            RETURNING id
+            """,
+            (
+                updated["title"],
+                updated.get("description"),
+                updated["category"],
+                updated["address"],
+                updated["city"],
+                updated["lat"],
+                updated["lng"],
+                updated.get("requirements"),
+                resource_id,
+            ),
+        )
+        updated_id = cursor.fetchone()["id"]
+
+        cursor.execute(
+            """
+            SELECT r.id,
+                   r.created_by AS resource_author_id,
+                   r.title,
+                   r.description,
+                   r.category,
+                   r.address,
+                   r.city,
+                   r.lat,
+                   r.lng,
+                   r.requirements,
+                   r.hidden_reason,
+                   r.hidden_at,
+                   r.created_at AS "createdAt",
+                   r.updated_at AS "updatedAt",
+                   u.username AS author_username
+            FROM resources r
+            JOIN users u ON r.created_by = u.id
+            WHERE r.id = %s
+            """,
+            (updated_id,),
+        )
+        updated_resource = cursor.fetchone()
+
+        connection.commit()
+        return jsonify(updated_resource), 200
+
+    except Exception as error:
+        connection.rollback()
+        return jsonify({"error": str(error)}), 500
+    finally:
+        connection.close()
