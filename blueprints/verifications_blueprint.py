@@ -5,6 +5,7 @@ from middleware.auth_middleware import token_required
 
 verifications_blueprint = Blueprint("verifications_blueprint", __name__)
 
+# POST /resources/resource_id/verifications
 @verifications_blueprint.route("/resources/<int:resource_id>/verifications", methods=["POST"])
 @token_required
 def create_verification(resource_id):
@@ -51,6 +52,7 @@ def create_verification(resource_id):
         connection.close()
 
 
+# PUT /resources/resource_id/verifications/verifications_id
 @verifications_blueprint.route("/resources/<int:resource_id>/verifications/<int:verification_id>", methods=["PUT"])
 @token_required
 def update_verification(resource_id, verification_id):
@@ -83,6 +85,45 @@ def update_verification(resource_id, verification_id):
 
         connection.commit()
         return jsonify({"verification": updated}), 200
+
+    except Exception as error:
+        connection.rollback()
+        return jsonify({"error": str(error)}), 500
+    finally:
+        connection.close()
+
+
+
+
+# DELETE /resources/resource_id/verifications/verifications_id
+@verifications_blueprint.route("/resources/<int:resource_id>/verifications/<int:verification_id>", methods=["DELETE"],
+)
+@token_required
+def delete_verification(resource_id, verification_id):
+    connection = get_db_connection()
+    try:
+        cursor = connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        # Validate that it exists and belongs to that resource_id
+        cursor.execute(
+            "SELECT * FROM verifications WHERE id = %s AND resource_id = %s",
+            (verification_id, resource_id),
+        )
+        verification_to_delete = cursor.fetchone()
+        if verification_to_delete is None:
+            return jsonify({"error": "Verification not found"}), 404
+
+        # 2) Validate ownership
+        if verification_to_delete["user_id"] != g.user["id"]:
+            return jsonify({"error": "Unauthorized"}), 401
+
+        cursor.execute(
+            "DELETE FROM verifications WHERE id = %s AND resource_id = %s",
+            (verification_id, resource_id),
+        )
+
+        connection.commit()
+        return jsonify({"message": "Verification deleted successfully"}), 200
 
     except Exception as error:
         connection.rollback()
