@@ -16,8 +16,14 @@ def create_resource():
 
     connection = get_db_connection()
     try:
-        new_resource = request.get_json()
+        new_resource = request.get_json() or {}
+
         creator_id = g.user["id"]
+
+        required = ["title", "category", "address", "city"]
+        missing = [field for field in required if not new_resource.get(field)]
+        if missing:
+            return jsonify({"error": f"Missing required fields: {', '.join(missing)}"}), 400
 
         # --- Geocoding en BACKEND (Mapbox) ---
         coords = geocode_address(new_resource["address"], new_resource["city"])
@@ -188,7 +194,7 @@ def show_resource(resource_id):
     finally:
         connection.close()
 
-        
+
 
 # PUT /resources/:id
 @resources_blueprint.route("/resources/<int:resource_id>", methods=["PUT"])
@@ -196,7 +202,8 @@ def show_resource(resource_id):
 def update_resource(resource_id):
     connection = get_db_connection()
     try:
-        updated = request.get_json()
+        updated = request.get_json() or {}
+
         cursor = connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
         cursor.execute("SELECT * FROM resources WHERE id = %s", (resource_id,))
@@ -207,6 +214,11 @@ def update_resource(resource_id):
         if resource_to_update["created_by"] != g.user["id"]:
             return jsonify({"error": "Unauthorized"}), 401
         
+        required = ["title", "category", "address", "city"]
+        missing = [field for field in required if not updated.get(field)]
+        if missing:
+            return jsonify({"error": f"Missing required fields: {', '.join(missing)}"}), 400
+
         # --- Geocoding (Mapbox)
         coords = geocode_address(updated["address"], updated["city"])
         if coords is None:
