@@ -11,8 +11,13 @@ verifications_blueprint = Blueprint("verifications_blueprint", __name__)
 def create_verification(resource_id):
     connection = get_db_connection()
     try:
-        data = request.get_json()
+        data = request.get_json() or {}
         author_id = g.user["id"]
+
+        required = ["status", "note"]
+        missing = [field for field in required if not data.get(field)]
+        if missing:
+            return jsonify({"error": f"Missing required fields: {', '.join(missing)}"}), 400
 
         cursor = connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
@@ -58,8 +63,13 @@ def create_verification(resource_id):
 def update_verification(resource_id, verification_id):
     connection = get_db_connection()
     try:
-        data = request.get_json()
+        data = request.get_json() or {}
         cursor = connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        required = ["status", "note"]
+        missing = [field for field in required if not data.get(field)]
+        if missing:
+            return jsonify({"error": f"Missing required fields: {', '.join(missing)}"}), 400
 
         cursor.execute(
             "SELECT * FROM verifications WHERE id = %s AND resource_id = %s",
