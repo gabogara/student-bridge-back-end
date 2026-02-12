@@ -2,11 +2,13 @@ CREATE DATABASE student_bridge_db;
 \connect student_bridge_db
 
 
+DROP TABLE IF EXISTS saves;
+DROP TABLE IF EXISTS verifications;
 DROP TABLE IF EXISTS resources;
 DROP TABLE IF EXISTS users;
-DROP TABLE IF EXISTS verifications;
 
-
+DROP TYPE IF EXISTS resource_category;
+DROP TYPE IF EXISTS verification_status;
 -- ---------------USERS ------------------------------------------------
 
 CREATE TABLE users (
@@ -16,7 +18,19 @@ CREATE TABLE users (
   is_moderator BOOLEAN      NOT NULL DEFAULT FALSE
 );
 
+-- --------------- ENUM ---------
+CREATE TYPE resource_category AS ENUM (
+  'Food',
+  'Housing',
+  'Health',
+  'Education'
+); 
 
+CREATE TYPE verification_status AS ENUM (
+  'Pending',
+  'Verified',
+  'Rejected'
+);
 -- -------------- RESOURCES ---------------------------------------------
 
 CREATE TABLE resources (
@@ -24,7 +38,7 @@ CREATE TABLE resources (
   created_by    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   title         VARCHAR(120) NOT NULL,
   description   TEXT,
-  category      VARCHAR(30)  NOT NULL,
+  category      resource_category NOT NULL,
   address       TEXT         NOT NULL,
   city          VARCHAR(80)  NOT NULL,
   lat           NUMERIC(9,6) NOT NULL,
@@ -42,7 +56,19 @@ CREATE TABLE verifications (
   id          SERIAL PRIMARY KEY,
   resource_id INTEGER NOT NULL REFERENCES resources(id) ON DELETE CASCADE,
   user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  status      VARCHAR(30) NOT NULL,
+  status      verification_status NOT NULL DEFAULT 'Pending',
   note        TEXT NOT NULL,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE verifications ADD CONSTRAINT uq_verification_once UNIQUE (resource_id, user_id);
+
+-- ------------------- SAVES -----
+
+CREATE TABLE saves (
+  id          SERIAL PRIMARY KEY,
+  resource_id INTEGER NOT NULL REFERENCES resources(id) ON DELETE CASCADE,
+  user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT uq_save UNIQUE (resource_id, user_id)
 );
