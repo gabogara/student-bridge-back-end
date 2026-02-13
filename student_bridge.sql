@@ -1,3 +1,4 @@
+DROP DATABASE IF EXISTS student_bridge_db;
 CREATE DATABASE student_bridge_db;
 \connect student_bridge_db
 
@@ -27,9 +28,10 @@ CREATE TYPE resource_category AS ENUM (
 ); 
 
 CREATE TYPE verification_status AS ENUM (
-  'Pending',
-  'Verified',
-  'Rejected'
+  'Active',
+  'Temporarily Closed',
+  'No Longer Available',
+  'Info Needs Update'
 );
 -- -------------- RESOURCES ---------------------------------------------
 
@@ -56,12 +58,10 @@ CREATE TABLE verifications (
   id          SERIAL PRIMARY KEY,
   resource_id INTEGER NOT NULL REFERENCES resources(id) ON DELETE CASCADE,
   user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  status      verification_status NOT NULL DEFAULT 'Pending',
+  status      verification_status NOT NULL DEFAULT 'Active',
   note        TEXT NOT NULL,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-
-ALTER TABLE verifications ADD CONSTRAINT uq_verification_once UNIQUE (resource_id, user_id);
 
 -- ------------------- SAVES -----
 

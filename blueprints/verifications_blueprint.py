@@ -18,6 +18,15 @@ def create_verification(resource_id):
         missing = [field for field in required if not data.get(field)]
         if missing:
             return jsonify({"error": f"Missing required fields: {', '.join(missing)}"}), 400
+        
+        allowed_statuses = [
+            "Active",
+            "Temporarily Closed",
+            "No Longer Available",
+            "Info Needs Update",
+        ]
+        if data["status"] not in allowed_statuses:
+            return jsonify({"error": "Invalid status"}), 400
 
         cursor = connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
@@ -71,6 +80,15 @@ def update_verification(resource_id, verification_id):
         if missing:
             return jsonify({"error": f"Missing required fields: {', '.join(missing)}"}), 400
 
+        allowed_statuses = [
+            "Active",
+            "Temporarily Closed",
+            "No Longer Available",
+            "Info Needs Update",
+        ]
+        if data["status"] not in allowed_statuses:
+            return jsonify({"error": "Invalid status"}), 400
+
         cursor.execute(
             "SELECT * FROM verifications WHERE id = %s AND resource_id = %s",
             (verification_id, resource_id),
@@ -87,21 +105,35 @@ def update_verification(resource_id, verification_id):
             UPDATE verifications
             SET status = %s, note = %s
             WHERE id = %s AND resource_id = %s
-            RETURNING *
+            RETURNING id
             """,
             (data["status"], data["note"], verification_id, resource_id),
+        )
+
+        cursor.execute(
+            """
+            SELECT v.id AS verification_id,
+                   v.status,
+                   v.note,
+                   v.created_at AS "createdAt",
+                   v.user_id AS verification_author_id,
+                   u.username AS verification_author_username
+            FROM verifications v
+            JOIN users u ON v.user_id = u.id
+            WHERE v.id = %s
+            """,
+            (verification_id,),
         )
         updated = cursor.fetchone()
 
         connection.commit()
-        return jsonify({"verification": updated}), 200
+        return jsonify(updated), 200
 
     except Exception as error:
         connection.rollback()
         return jsonify({"error": str(error)}), 500
     finally:
         connection.close()
-
 
 
 

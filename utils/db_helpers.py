@@ -20,7 +20,7 @@ def consolidate_verifications_in_resources(resources_with_verifications):
         for consolidated in consolidated_resources:
             if row["id"] == consolidated["id"]:
                 resource_exists = True
-                # si hay verificación, la agregamos
+
                 if row["verification_id"] is not None:
                     consolidated["verifications"].append({
                         "verification_id": row["verification_id"],
@@ -44,7 +44,7 @@ def consolidate_verifications_in_resources(resources_with_verifications):
                     "verification_author_id": row["verification_author_id"],
                 })
 
-            # limpiar campos "flat" (igual que hoot.pop...)
+            # clean fields "flat"
             row.pop("verification_id", None)
             row.pop("verification_status", None)
             row.pop("verification_note", None)
