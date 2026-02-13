@@ -34,10 +34,16 @@ def create_verification(resource_id):
             """
             INSERT INTO verifications (resource_id, user_id, status, note)
             VALUES (%s, %s, %s, %s)
+            ON CONFLICT (resource_id, user_id)
+            DO UPDATE SET
+                status = EXCLUDED.status,
+                note = EXCLUDED.note,
+                created_at = NOW()
             RETURNING id
             """,
             (resource_id, author_id, data["status"], data["note"]),
         )
+
         verification_id = cursor.fetchone()["id"]
 
         cursor.execute(

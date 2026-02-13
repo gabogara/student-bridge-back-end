@@ -63,6 +63,8 @@ CREATE TABLE verifications (
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+ALTER TABLE verifications
+ADD CONSTRAINT uq_verification_once UNIQUE (resource_id, user_id);
 -- ------------------- SAVES -----
 
 CREATE TABLE saves (
