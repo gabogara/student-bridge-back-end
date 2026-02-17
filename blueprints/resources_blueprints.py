@@ -373,6 +373,41 @@ def my_saves_index():
     finally:
         connection.close()
 
+# DELETE /resources/resource_id/saves
+@resources_blueprint.route("/resources/<int:resource_id>/saves", methods=["DELETE"])
+@token_required
+def delete_save(resource_id):
+    connection = get_db_connection()
+    try:
+        user_id = g.user["id"]
+        cursor = connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        cursor.execute(
+            """
+            DELETE FROM saves
+            WHERE resource_id = %s AND user_id = %s
+            RETURNING id
+            """,
+            (resource_id, user_id),
+        )
+
+        deleted = cursor.fetchone()
+        connection.commit()
+
+        return jsonify({
+            "saved": False,
+            "resource_id": resource_id,
+            "user_id": user_id,
+            "deleted_save_id": deleted["id"] if deleted else None
+        }), 200
+
+    except Exception as error:
+        connection.rollback()
+        return jsonify({"error": str(error)}), 500
+    finally:
+        connection.close()
+
+
 
 @resources_blueprint.route("/resources/<int:resource_id>", methods=["DELETE"])
 @token_required
