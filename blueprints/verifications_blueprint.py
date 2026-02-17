@@ -168,7 +168,7 @@ def delete_verification(resource_id, verification_id):
         if verification_to_delete is None:
             return jsonify({"error": "Verification not found"}), 404
 
-        # 2) Validate ownership
+        # Validate ownership
         if verification_to_delete["user_id"] != g.user["id"]:
             return jsonify({"error": "Unauthorized"}), 401
 

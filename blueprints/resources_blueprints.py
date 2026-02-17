@@ -8,12 +8,10 @@ from utils.mapbox_helpers import geocode_address
 
 resources_blueprint = Blueprint('resources_blueprint', __name__)
 
-
+# POST /resources
 @resources_blueprint.route("/resources", methods=["POST"])
 @token_required
 def create_resource():
-    print("create_resource hit")
-
     connection = None
     try:
         new_resource = request.get_json() or {}
@@ -34,7 +32,6 @@ def create_resource():
         if coords is None:
             return jsonify({"error": "Address not found"}), 400
         lat, lng = coords
-        print("geocoded coords:", lat, lng)
 
         connection = get_db_connection()
         cursor = connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
@@ -96,6 +93,7 @@ def create_resource():
             connection.close()
 
 
+# GET /resources
 @resources_blueprint.route("/resources", methods=["GET"])
 def resources_index():
     connection = None
@@ -137,8 +135,6 @@ def resources_index():
         )
         rows = cursor.fetchall()
 
-        print("RAW rows sample:", rows[:1])
-
         consolidated = consolidate_verifications_in_resources(rows)
         return jsonify(consolidated), 200
 
@@ -149,7 +145,7 @@ def resources_index():
             connection.close()
 
 
-
+# GET /resources/resource_id
 @resources_blueprint.route("/resources/<int:resource_id>", methods=["GET"])
 def show_resource(resource_id):
     connection = None
@@ -240,7 +236,6 @@ def update_resource(resource_id):
         if coords is None:
             return jsonify({"error": "Address not found"}), 400
         lat, lng = coords
-        print("updated geocoded coords:", lat, lng)
 
         cursor.execute(
             """
