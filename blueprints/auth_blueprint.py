@@ -12,6 +12,7 @@ authentication_blueprint = Blueprint('authentication_blueprint', __name__)
 
 @authentication_blueprint.route('/auth/sign-up', methods=['POST'])
 def sign_up():
+    connection = None
     try:
         new_user_data = request.get_json()
         connection = get_db_connection()
@@ -29,7 +30,6 @@ def sign_up():
                        (new_user_data["username"], hashed_password.decode('utf-8')))
         created_user = cursor.fetchone()
         connection.commit()
-        connection.close()
 
         payload = {
             "username": created_user["username"], "id": created_user["id"]}
@@ -37,14 +37,20 @@ def sign_up():
         token = jwt.encode({"payload": payload}, os.getenv('JWT_SECRET'))
 
         return jsonify({"token": token}), 201
-    except Exception as err:
-        return jsonify({"err": str(err)}), 401
+    except Exception as error:
+        if connection:
+            connection.rollback()
+        return jsonify({"error": str(error)}), 500
+    finally:
+        if connection:
+            connection.close()
 
 
 @authentication_blueprint.route('/auth/sign-in', methods=["POST"])
 def sign_in():
+    connection = None
     try:
-        sign_in_form_data = request.get_json()
+        sign_in_form_data = request.get_json() or {}
         connection = get_db_connection()
         cursor = connection.cursor(
             cursor_factory=psycopg2.extras.RealDictCursor)
@@ -67,4 +73,5 @@ def sign_in():
     except Exception as err:
         return jsonify({"err": str(err)}), 500
     finally:
-        connection.close()
+        if connection:
+            connection.close()

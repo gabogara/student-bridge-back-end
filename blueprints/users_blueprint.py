@@ -9,25 +9,27 @@ users_blueprint = Blueprint("users_blueprint", __name__)
 @users_blueprint.route("/users", methods=["GET"])
 @token_required
 def users_index():
-    connection = get_db_connection()
+    connection = None
     try:
+        connection = get_db_connection()
         cursor = connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cursor.execute("SELECT id, username FROM users;")
         users = cursor.fetchall()
         return jsonify(users), 200
     finally:
-        connection.close()
+        if connection:
+            connection.close()
 
 
 @users_blueprint.route("/users/<int:user_id>", methods=["GET"])
 @token_required
 def users_show(user_id):
-    # auth ownership
-    if user_id != g.user["id"]:
+    if user_id != int(g.user["id"]):
         return jsonify({"err": "Unauthorized"}), 403
 
-    connection = get_db_connection()
+    connection = None
     try:
+        connection = get_db_connection()
         cursor = connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cursor.execute("SELECT id, username FROM users WHERE id = %s;", (user_id,))
         user = cursor.fetchone()
@@ -35,4 +37,5 @@ def users_show(user_id):
             return jsonify({"err": "User not found"}), 404
         return jsonify(user), 200
     finally:
-        connection.close()
+        if connection:
+            connection.close()
