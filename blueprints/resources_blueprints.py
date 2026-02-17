@@ -289,6 +289,90 @@ def update_resource(resource_id):
     finally:
         connection.close()
 
+# POST /resources/resource_id/saves
+@resources_blueprint.route("/resources/<int:resource_id>/saves", methods=["POST"])
+@token_required
+def create_save(resource_id):
+    connection = get_db_connection()
+    try:
+        user_id = g.user["id"]
+        cursor = connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        cursor.execute("SELECT id FROM resources WHERE id = %s", (resource_id,))
+        resource = cursor.fetchone()
+        if resource is None:
+            return jsonify({"error": "Resource not found"}), 404
+
+        cursor.execute(
+            """
+            INSERT INTO saves (resource_id, user_id)
+            VALUES (%s, %s)
+            ON CONFLICT (resource_id, user_id) DO NOTHING
+            RETURNING id
+            """,
+            (resource_id, user_id),
+        )
+
+        inserted = cursor.fetchone()
+        connection.commit()
+
+        return jsonify({
+            "saved": True,
+            "resource_id": resource_id,
+            "user_id": user_id,
+            "save_id": inserted["id"] if inserted else None
+        }), 201
+
+    except Exception as error:
+        connection.rollback()
+        return jsonify({"error": str(error)}), 500
+    finally:
+        connection.close()
+
+# GET /saves
+@resources_blueprint.route("/saves", methods=["GET"])
+@token_required
+def my_saves_index():
+    connection = get_db_connection()
+    try:
+        user_id = g.user["id"]
+        cursor = connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        cursor.execute(
+            """
+            SELECT r.id,
+                   r.created_by AS resource_author_id,
+                   r.title,
+                   r.description,
+                   r.category,
+                   r.address,
+                   r.city,
+                   r.lat,
+                   r.lng,
+                   r.requirements,
+                   r.hidden_reason,
+                   r.hidden_at,
+                   r.created_at AS "createdAt",
+                   r.updated_at AS "updatedAt",
+                   u.username AS author_username,
+                   s.created_at AS "savedAt"
+            FROM saves s
+            JOIN resources r ON s.resource_id = r.id
+            JOIN users u ON r.created_by = u.id
+            WHERE s.user_id = %s
+            ORDER BY s.created_at DESC
+            """,
+            (user_id,),
+        )
+
+        rows = cursor.fetchall()
+        return jsonify(rows), 200
+
+    except Exception as error:
+        return jsonify({"error": str(error)}), 500
+    finally:
+        connection.close()
+
 
 @resources_blueprint.route("/resources/<int:resource_id>", methods=["DELETE"])
 @token_required
