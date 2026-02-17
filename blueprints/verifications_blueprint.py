@@ -9,7 +9,7 @@ verifications_blueprint = Blueprint("verifications_blueprint", __name__)
 @verifications_blueprint.route("/resources/<int:resource_id>/verifications", methods=["POST"])
 @token_required
 def create_verification(resource_id):
-    connection = get_db_connection()
+    connection = None
     try:
         data = request.get_json() or {}
         author_id = g.user["id"]
@@ -27,7 +27,8 @@ def create_verification(resource_id):
         ]
         if data["status"] not in allowed_statuses:
             return jsonify({"error": "Invalid status"}), 400
-
+        
+        connection = get_db_connection()
         cursor = connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
         cursor.execute(
@@ -66,20 +67,21 @@ def create_verification(resource_id):
         return jsonify(created), 201
 
     except Exception as error:
-        connection.rollback()
+        if connection:
+            connection.rollback()
         return jsonify({"error": str(error)}), 500
     finally:
-        connection.close()
+        if connection:
+            connection.close()
 
 
 # PUT /resources/resource_id/verifications/verifications_id
 @verifications_blueprint.route("/resources/<int:resource_id>/verifications/<int:verification_id>", methods=["PUT"])
 @token_required
 def update_verification(resource_id, verification_id):
-    connection = get_db_connection()
+    connection = None
     try:
         data = request.get_json() or {}
-        cursor = connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
         required = ["status", "note"]
         missing = [field for field in required if not data.get(field)]
@@ -95,6 +97,8 @@ def update_verification(resource_id, verification_id):
         if data["status"] not in allowed_statuses:
             return jsonify({"error": "Invalid status"}), 400
 
+        connection = get_db_connection()
+        cursor = connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cursor.execute(
             "SELECT * FROM verifications WHERE id = %s AND resource_id = %s",
             (verification_id, resource_id),
@@ -136,10 +140,12 @@ def update_verification(resource_id, verification_id):
         return jsonify(updated), 200
 
     except Exception as error:
-        connection.rollback()
+        if connection:
+            connection.rollback()
         return jsonify({"error": str(error)}), 500
     finally:
-        connection.close()
+        if connection:
+            connection.close()
 
 
 
@@ -148,8 +154,9 @@ def update_verification(resource_id, verification_id):
 )
 @token_required
 def delete_verification(resource_id, verification_id):
-    connection = get_db_connection()
+    connection = None
     try:
+        connection = get_db_connection()
         cursor = connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
         # Validate that it exists and belongs to that resource_id
@@ -174,7 +181,9 @@ def delete_verification(resource_id, verification_id):
         return jsonify({"message": "Verification deleted successfully"}), 200
 
     except Exception as error:
-        connection.rollback()
+        if connection:
+            connection.rollback()
         return jsonify({"error": str(error)}), 500
     finally:
-        connection.close()
+        if connection:
+            connection.close()

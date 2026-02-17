@@ -14,7 +14,7 @@ resources_blueprint = Blueprint('resources_blueprint', __name__)
 def create_resource():
     print("create_resource hit")
 
-    connection = get_db_connection()
+    connection = None
     try:
         new_resource = request.get_json() or {}
 
@@ -24,6 +24,10 @@ def create_resource():
         missing = [field for field in required if not new_resource.get(field)]
         if missing:
             return jsonify({"error": f"Missing required fields: {', '.join(missing)}"}), 400
+        
+        allowed_categories = ["Food", "Housing", "Health", "Education"]
+        if new_resource["category"] not in allowed_categories:
+            return jsonify({"error": "Invalid category"}), 400
 
         # --- Geocoding en BACKEND (Mapbox) ---
         coords = geocode_address(new_resource["address"], new_resource["city"])
@@ -32,6 +36,7 @@ def create_resource():
         lat, lng = coords
         print("geocoded coords:", lat, lng)
 
+        connection = get_db_connection()
         cursor = connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cursor.execute(
             """
@@ -83,16 +88,19 @@ def create_resource():
         return jsonify(created_resource), 201
 
     except Exception as error:
-        connection.rollback()
+        if connection:
+            connection.rollback()
         return jsonify({"error": str(error)}), 500
     finally:
-        connection.close()
+        if connection:
+            connection.close()
 
 
 @resources_blueprint.route("/resources", methods=["GET"])
 def resources_index():
-    connection = get_db_connection()
+    connection = None
     try:
+        connection = get_db_connection()
         cursor = connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
         cursor.execute(
@@ -137,14 +145,16 @@ def resources_index():
     except Exception as error:
         return jsonify({"error": str(error)}), 500
     finally:
-        connection.close()
+        if connection:
+            connection.close()
 
 
 
 @resources_blueprint.route("/resources/<int:resource_id>", methods=["GET"])
 def show_resource(resource_id):
-    connection = get_db_connection()
+    connection = None
     try:
+        connection = get_db_connection()
         cursor = connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
         cursor.execute(
@@ -192,7 +202,8 @@ def show_resource(resource_id):
     except Exception as error:
         return jsonify({"error": str(error)}), 500
     finally:
-        connection.close()
+        if connection:
+            connection.close()
 
 
 
@@ -200,10 +211,20 @@ def show_resource(resource_id):
 @resources_blueprint.route("/resources/<int:resource_id>", methods=["PUT"])
 @token_required
 def update_resource(resource_id):
-    connection = get_db_connection()
+    connection = None
     try:
         updated = request.get_json() or {}
+        
+        required = ["title", "category", "address", "city"]
+        missing = [field for field in required if not updated.get(field)]
+        if missing:
+            return jsonify({"error": f"Missing required fields: {', '.join(missing)}"}), 400
+        
+        allowed_categories = ["Food", "Housing", "Health", "Education"]
+        if updated["category"] not in allowed_categories:
+            return jsonify({"error": "Invalid category"}), 400
 
+        connection = get_db_connection()
         cursor = connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
         cursor.execute("SELECT * FROM resources WHERE id = %s", (resource_id,))
@@ -214,11 +235,6 @@ def update_resource(resource_id):
         if resource_to_update["created_by"] != g.user["id"]:
             return jsonify({"error": "Unauthorized"}), 401
         
-        required = ["title", "category", "address", "city"]
-        missing = [field for field in required if not updated.get(field)]
-        if missing:
-            return jsonify({"error": f"Missing required fields: {', '.join(missing)}"}), 400
-
         # --- Geocoding (Mapbox)
         coords = geocode_address(updated["address"], updated["city"])
         if coords is None:
@@ -284,18 +300,22 @@ def update_resource(resource_id):
         return jsonify(updated_resource), 200
 
     except Exception as error:
-        connection.rollback()
+        if connection:
+            connection.rollback()
         return jsonify({"error": str(error)}), 500
     finally:
-        connection.close()
+        if connection:
+            connection.close()
+
 
 # POST /resources/resource_id/saves
 @resources_blueprint.route("/resources/<int:resource_id>/saves", methods=["POST"])
 @token_required
 def create_save(resource_id):
-    connection = get_db_connection()
+    connection = None
     try:
         user_id = g.user["id"]
+        connection = get_db_connection()
         cursor = connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
         cursor.execute("SELECT id FROM resources WHERE id = %s", (resource_id,))
@@ -324,18 +344,22 @@ def create_save(resource_id):
         }), 201
 
     except Exception as error:
-        connection.rollback()
+        if connection:
+            connection.rollback()
         return jsonify({"error": str(error)}), 500
     finally:
-        connection.close()
+        if connection:
+            connection.close()
+
 
 # GET /saves
 @resources_blueprint.route("/saves", methods=["GET"])
 @token_required
 def my_saves_index():
-    connection = get_db_connection()
+    connection = None
     try:
         user_id = g.user["id"]
+        connection = get_db_connection()
         cursor = connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
         cursor.execute(
@@ -369,17 +393,22 @@ def my_saves_index():
         return jsonify(rows), 200
 
     except Exception as error:
+        if connection:
+            connection.rollback()
         return jsonify({"error": str(error)}), 500
     finally:
-        connection.close()
+        if connection:
+            connection.close()
+
 
 # DELETE /resources/resource_id/saves
 @resources_blueprint.route("/resources/<int:resource_id>/saves", methods=["DELETE"])
 @token_required
 def delete_save(resource_id):
-    connection = get_db_connection()
+    connection = None
     try:
         user_id = g.user["id"]
+        connection = get_db_connection()
         cursor = connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
         cursor.execute(
@@ -402,18 +431,20 @@ def delete_save(resource_id):
         }), 200
 
     except Exception as error:
-        connection.rollback()
+        if connection:
+            connection.rollback()
         return jsonify({"error": str(error)}), 500
     finally:
-        connection.close()
-
+        if connection:
+            connection.close()
 
 
 @resources_blueprint.route("/resources/<int:resource_id>", methods=["DELETE"])
 @token_required
 def delete_resource(resource_id):
-    connection = get_db_connection()
+    connection = None
     try:
+        connection = get_db_connection()
         cursor = connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
         cursor.execute("SELECT * FROM resources WHERE id = %s", (resource_id,))
@@ -430,7 +461,9 @@ def delete_resource(resource_id):
         return jsonify(resource_to_delete), 200
 
     except Exception as error:
-        connection.rollback()
+        if connection:
+            connection.rollback()
         return jsonify({"error": str(error)}), 500
     finally:
-        connection.close()
+        if connection:
+            connection.close()
