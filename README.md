@@ -53,7 +53,7 @@ The `student_bridge.sql` file contains:
 - Foreign key constraints
 
 ## Entity Relationship Diagram (ERD)
-![ERD](https://i.postimg.cc/4dhtYRpK/proj4-(2).jpg)
+![ERD](https://i.postimg.cc/LsHVWzNG/proj4-drawio.png)
 
 ---
 
